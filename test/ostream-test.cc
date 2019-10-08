@@ -64,7 +64,7 @@ TEST(OStreamTest, Enum) {
   EXPECT_EQ(L"0", fmt::format(L"{}", unstreamable_enum()));
 }
 
-using range = fmt::internal::buffer_range<char>;
+using range = fmt::buffer_range<char>;
 
 struct test_arg_formatter : fmt::arg_formatter<range> {
   fmt::format_parse_context parse_ctx;
@@ -95,8 +95,10 @@ TEST(OStreamTest, Format) {
 TEST(OStreamTest, FormatSpecs) {
   EXPECT_EQ("def  ", format("{0:<5}", TestString("def")));
   EXPECT_EQ("  def", format("{0:>5}", TestString("def")));
+#if FMT_NUMERIC_ALIGN
   EXPECT_THROW_MSG(format("{0:=5}", TestString("def")), format_error,
                    "format specifier requires numeric argument");
+#endif
   EXPECT_EQ(" def ", format("{0:^5}", TestString("def")));
   EXPECT_EQ("def**", format("{0:*<5}", TestString("def")));
   EXPECT_THROW_MSG(format("{0:+}", TestString()), format_error,
@@ -143,8 +145,8 @@ TEST(OStreamTest, WriteToOStream) {
 }
 
 TEST(OStreamTest, WriteToOStreamMaxSize) {
-  std::size_t max_size = std::numeric_limits<std::size_t>::max();
-  std::streamsize max_streamsize = std::numeric_limits<std::streamsize>::max();
+  std::size_t max_size = fmt::internal::max_value<std::size_t>();
+  std::streamsize max_streamsize = fmt::internal::max_value<std::streamsize>();
   if (max_size <= fmt::internal::to_unsigned(max_streamsize)) return;
 
   struct test_buffer : fmt::internal::buffer<char> {
@@ -240,3 +242,16 @@ TEST(FormatTest, UDL) {
   EXPECT_EQ("{}"_format("test"), "test");
 }
 #endif
+
+template <typename T>
+struct convertible {
+  T value;
+  explicit convertible(const T& val) : value(val) {}
+  operator T() const { return value; }
+};
+
+TEST(OStreamTest, DisableBuiltinOStreamOperators) {
+  EXPECT_EQ("42", fmt::format("{:d}", convertible<unsigned short>(42)));
+  EXPECT_EQ(L"42", fmt::format(L"{:d}", convertible<unsigned short>(42)));
+  EXPECT_EQ("foo", fmt::format("{}", convertible<const char*>("foo")));
+}

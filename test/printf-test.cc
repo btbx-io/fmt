@@ -16,6 +16,7 @@
 
 using fmt::format;
 using fmt::format_error;
+using fmt::internal::max_value;
 
 const unsigned BIG_NUM = INT_MAX + 1u;
 
@@ -111,7 +112,7 @@ TEST(PrintfTest, SwitchArgIndexing) {
 
 TEST(PrintfTest, InvalidArgIndex) {
   EXPECT_THROW_MSG(test_sprintf("%0$d", 42), format_error,
-                   "argument index out of range");
+                   "argument index 0 is out of range");
   EXPECT_THROW_MSG(test_sprintf("%2$d", 42), format_error,
                    "argument index out of range");
   EXPECT_THROW_MSG(test_sprintf(format("%{}$d", INT_MAX), 42), format_error,
@@ -295,13 +296,12 @@ void TestLength(const char* length_spec, U value) {
   long long signed_value = 0;
   unsigned long long unsigned_value = 0;
   // Apply integer promotion to the argument.
-  using std::numeric_limits;
-  unsigned long long max = numeric_limits<U>::max();
+  unsigned long long max = max_value<U>();
   using fmt::internal::const_check;
-  if (const_check(max <= static_cast<unsigned>(numeric_limits<int>::max()))) {
+  if (const_check(max <= static_cast<unsigned>(max_value<int>()))) {
     signed_value = static_cast<int>(value);
     unsigned_value = static_cast<unsigned>(value);
-  } else if (const_check(max <= numeric_limits<unsigned>::max())) {
+  } else if (const_check(max <= max_value<unsigned>())) {
     signed_value = static_cast<unsigned>(value);
     unsigned_value = static_cast<unsigned>(value);
   }
@@ -332,25 +332,27 @@ void TestLength(const char* length_spec, U value) {
 }
 
 template <typename T> void TestLength(const char* length_spec) {
-  T min = std::numeric_limits<T>::min(), max = std::numeric_limits<T>::max();
+  T min = std::numeric_limits<T>::min(), max = max_value<T>();
   TestLength<T>(length_spec, 42);
   TestLength<T>(length_spec, -42);
   TestLength<T>(length_spec, min);
   TestLength<T>(length_spec, max);
-  TestLength<T>(length_spec, static_cast<long long>(min) - 1);
-  unsigned long long long_long_max = std::numeric_limits<long long>::max();
+  long long long_long_min = std::numeric_limits<long long>::min();
+  if (static_cast<long long>(min) > long_long_min)
+    TestLength<T>(length_spec, static_cast<long long>(min) - 1);
+  unsigned long long long_long_max = max_value<long long>();
   if (static_cast<unsigned long long>(max) < long_long_max)
     TestLength<T>(length_spec, static_cast<long long>(max) + 1);
   TestLength<T>(length_spec, std::numeric_limits<short>::min());
-  TestLength<T>(length_spec, std::numeric_limits<unsigned short>::max());
+  TestLength<T>(length_spec, max_value<unsigned short>());
   TestLength<T>(length_spec, std::numeric_limits<int>::min());
-  TestLength<T>(length_spec, std::numeric_limits<int>::max());
+  TestLength<T>(length_spec, max_value<int>());
   TestLength<T>(length_spec, std::numeric_limits<unsigned>::min());
-  TestLength<T>(length_spec, std::numeric_limits<unsigned>::max());
+  TestLength<T>(length_spec, max_value<unsigned>());
   TestLength<T>(length_spec, std::numeric_limits<long long>::min());
-  TestLength<T>(length_spec, std::numeric_limits<long long>::max());
+  TestLength<T>(length_spec, max_value<long long>());
   TestLength<T>(length_spec, std::numeric_limits<unsigned long long>::min());
-  TestLength<T>(length_spec, std::numeric_limits<unsigned long long>::max());
+  TestLength<T>(length_spec, max_value<unsigned long long>());
 }
 
 TEST(PrintfTest, Length) {
@@ -366,7 +368,7 @@ TEST(PrintfTest, Length) {
   TestLength<intmax_t>("j");
   TestLength<std::size_t>("z");
   TestLength<std::ptrdiff_t>("t");
-  long double max = std::numeric_limits<long double>::max();
+  long double max = max_value<long double>();
   EXPECT_PRINTF(fmt::format("{:.6}", max), "%g", max);
   EXPECT_PRINTF(fmt::format("{:.6}", max), "%Lg", max);
 }
@@ -389,7 +391,7 @@ TEST(PrintfTest, Int) {
 TEST(PrintfTest, long_long) {
   // fmt::printf allows passing long long arguments to %d without length
   // specifiers.
-  long long max = std::numeric_limits<long long>::max();
+  long long max = max_value<long long>();
   EXPECT_PRINTF(fmt::format("{}", max), "%d", max);
 }
 
@@ -425,7 +427,7 @@ TEST(PrintfTest, Inf) {
 
 TEST(PrintfTest, Char) {
   EXPECT_PRINTF("x", "%c", 'x');
-  int max = std::numeric_limits<int>::max();
+  int max = max_value<int>();
   EXPECT_PRINTF(fmt::format("{}", static_cast<char>(max)), "%c", max);
   // EXPECT_PRINTF("x", "%lc", L'x');
   EXPECT_PRINTF(L"x", L"%c", L'x');
@@ -561,8 +563,7 @@ TEST(PrintfTest, VSPrintfMakeWArgsExample) {
 #endif
 }
 
-typedef fmt::printf_arg_formatter<fmt::internal::buffer_range<char>>
-    formatter_t;
+typedef fmt::printf_arg_formatter<fmt::buffer_range<char>> formatter_t;
 typedef fmt::basic_printf_context<formatter_t::iterator, char> context_t;
 
 // A custom printf argument formatter that doesn't print `-` for floating-point

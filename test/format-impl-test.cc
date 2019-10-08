@@ -22,7 +22,92 @@
 
 #undef max
 
+using fmt::internal::bigint;
 using fmt::internal::fp;
+using fmt::internal::max_value;
+
+static_assert(!std::is_copy_constructible<bigint>::value, "");
+static_assert(!std::is_copy_assignable<bigint>::value, "");
+
+TEST(BigIntTest, Construct) {
+  EXPECT_EQ("", fmt::format("{}", bigint()));
+  EXPECT_EQ("42", fmt::format("{}", bigint(0x42)));
+  EXPECT_EQ("123456789abcedf0", fmt::format("{}", bigint(0x123456789abcedf0)));
+}
+
+TEST(BigIntTest, LessEqual) {
+  bigint n1(42);
+  bigint n2(42);
+  EXPECT_TRUE(n1 <= n2);
+  n2 <<= 32;
+  EXPECT_TRUE(n1 <= n2);
+  EXPECT_FALSE(n2 <= n1);
+  bigint n3(43);
+  EXPECT_TRUE(n1 <= n3);
+  EXPECT_FALSE(n3 <= n1);
+  bigint n4(42 * 0x100000001);
+  EXPECT_TRUE(n2 <= n4);
+  EXPECT_FALSE(n4 <= n2);
+}
+
+TEST(BigIntTest, ShiftLeft) {
+  bigint n(0x42);
+  n <<= 0;
+  EXPECT_EQ("42", fmt::format("{}", n));
+  n <<= 1;
+  EXPECT_EQ("84", fmt::format("{}", n));
+  n <<= 25;
+  EXPECT_EQ("108000000", fmt::format("{}", n));
+}
+
+TEST(BigIntTest, Multiply) {
+  bigint n(0x42);
+  n *= 1;
+  EXPECT_EQ("42", fmt::format("{}", n));
+  n *= 2;
+  EXPECT_EQ("84", fmt::format("{}", n));
+  n *= 0x12345678;
+  EXPECT_EQ("962fc95e0", fmt::format("{}", n));
+  auto max = max_value<uint32_t>();
+  bigint bigmax(max);
+  bigmax *= max;
+  EXPECT_EQ("fffffffe00000001", fmt::format("{}", bigmax));
+}
+
+TEST(BigIntTest, Accumulator) {
+  fmt::internal::accumulator acc;
+  EXPECT_EQ(acc.lower, 0);
+  EXPECT_EQ(acc.upper, 0);
+  acc.upper = 12;
+  acc.lower = 34;
+  EXPECT_EQ(static_cast<uint32_t>(acc), 34);
+  acc += 56;
+  EXPECT_EQ(acc.lower, 90);
+  acc += fmt::internal::max_value<uint64_t>();
+  EXPECT_EQ(acc.upper, 13);
+  EXPECT_EQ(acc.lower, 89);
+  acc >>= 32;
+  EXPECT_EQ(acc.upper, 0);
+  EXPECT_EQ(acc.lower, 13 * 0x100000000);
+}
+
+TEST(BigIntTest, Square) {
+  bigint n0(0);
+  n0.square();
+  EXPECT_EQ("0", fmt::format("{}", n0));
+  bigint n1(0x100);
+  n1.square();
+  EXPECT_EQ("10000", fmt::format("{}", n1));
+  bigint n2(0xfffffffff);
+  n2.square();
+  EXPECT_EQ("ffffffffe000000001", fmt::format("{}", n2));
+  bigint n3(max_value<uint64_t>());
+  n3.square();
+  EXPECT_EQ("fffffffffffffffe0000000000000001", fmt::format("{}", n3));
+  bigint n4;
+  n4.assign_pow10(10);
+  EXPECT_EQ("2540be400", fmt::format("{}", n4));
+}
 
 template <bool is_iec559> void test_construct_from_double() {
   fmt::print("warning: double is not IEC559, skipping FP tests\n");
@@ -39,10 +124,10 @@ TEST(FPTest, ConstructFromDouble) {
 }
 
 TEST(FPTest, Normalize) {
-  auto v = fp(0xbeef, 42);
-  v.normalize();
-  EXPECT_EQ(0xbeef000000000000, v.f);
-  EXPECT_EQ(-6, v.e);
+  const auto v = fp(0xbeef, 42);
+  auto normalized = normalize(v);
+  EXPECT_EQ(0xbeef000000000000, normalized.f);
+  EXPECT_EQ(-6, normalized.e);
 }
 
 TEST(FPTest, ComputeBoundariesSubnormal) {
@@ -100,7 +185,7 @@ TEST(FPTest, GetRoundDirection) {
   EXPECT_EQ(fmt::internal::up, get_round_direction(100, 60, 10));
   for (int i = 41; i < 60; ++i)
     EXPECT_EQ(fmt::internal::unknown, get_round_direction(100, i, 10));
-  uint64_t max = std::numeric_limits<uint64_t>::max();
+  uint64_t max = max_value<uint64_t>();
   EXPECT_THROW(get_round_direction(100, 100, 0), assertion_failure);
   EXPECT_THROW(get_round_direction(100, 0, 100), assertion_failure);
   EXPECT_THROW(get_round_direction(100, 0, 50), assertion_failure);
@@ -132,7 +217,7 @@ TEST(FPTest, FixedHandler) {
   // Check that divisor - error doesn't overflow.
   EXPECT_EQ(handler(1).on_digit('0', 100, 10, 101, exp, false), digits::error);
   // Check that 2 * error doesn't overflow.
-  uint64_t max = std::numeric_limits<uint64_t>::max();
+  uint64_t max = max_value<uint64_t>();
   EXPECT_EQ(handler(1).on_digit('0', max, 10, max - 1, exp, false),
             digits::error);
 }
@@ -149,10 +234,21 @@ template <typename T> struct value_extractor {
   template <typename U> FMT_NORETURN T operator()(U) {
     throw std::runtime_error(fmt::format("invalid type {}", typeid(U).name()));
   }
+
+#ifdef __apple_build_version__
+  // Apple Clang does not define typeid for __int128_t and __uint128_t.
+  FMT_NORETURN T operator()(__int128_t) {
+    throw std::runtime_error(fmt::format("invalid type {}", "__int128_t"));
+  }
+
+  FMT_NORETURN T operator()(__uint128_t) {
+    throw std::runtime_error(fmt::format("invalid type {}", "__uint128_t"));
+  }
+#endif
 };
 
 TEST(FormatTest, ArgConverter) {
-  long long value = std::numeric_limits<long long>::max();
+  long long value = max_value<long long>();
   auto arg = fmt::internal::make_arg<fmt::format_context>(value);
   fmt::visit_format_arg(
       fmt::internal::arg_converter<long long, fmt::format_context>(arg, 'd'),
@@ -243,8 +339,7 @@ TEST(FormatTest, CountCodePoints) {
 // Tests fmt::internal::count_digits for integer type Int.
 template <typename Int> void test_count_digits() {
   for (Int i = 0; i < 10; ++i) EXPECT_EQ(1u, fmt::internal::count_digits(i));
-  for (Int i = 1, n = 1, end = std::numeric_limits<Int>::max() / 10; n <= end;
-       ++i) {
+  for (Int i = 1, n = 1, end = max_value<Int>() / 10; n <= end; ++i) {
     n *= 10;
     EXPECT_EQ(i, fmt::internal::count_digits(n - 1));
     EXPECT_EQ(i + 1, fmt::internal::count_digits(n));

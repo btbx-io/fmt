@@ -10,6 +10,8 @@ The {fmt} library API consists of the following parts:
   facilities and a lightweight subset of formatting functions
 * :ref:`fmt/format.h <format-api>`: the full format API providing compile-time
   format string checks, output iterator and user-defined type support
+* :ref:`fmt/ranges.h <ranges-api>`: additional formatting support for ranges
+  and tuples
 * :ref:`fmt/chrono.h <chrono-api>`: date and time formatting
 * :ref:`fmt/ostream.h <ostream-api>`: ``std::ostream`` support
 * :ref:`fmt/printf.h <printf-api>`: ``printf`` formatting
@@ -23,7 +25,8 @@ Core API
 ========
 
 ``fmt/core.h`` defines the core API which provides argument handling facilities
-and a lightweight subset of formatting functions.
+and a lightweight subset of formatting functions. In the header-only mode
+include ``fmt/format.h`` instead of ``fmt/core.h``.
 
 The following functions use :ref:`format string syntax <syntax>`
 similar to that of Python's `str.format
@@ -278,21 +281,21 @@ Custom Formatting of Built-in Types
 It is possible to change the way arguments are formatted by providing a
 custom argument formatter class::
 
-  using arg_formatter =
-    fmt::arg_formatter<fmt::back_insert_range<fmt::internal::buffer>>;
+  using arg_formatter = fmt::arg_formatter<fmt::buffer_range<char>>;
 
   // A custom argument formatter that formats negative integers as unsigned
   // with the ``x`` format specifier.
   class custom_arg_formatter : public arg_formatter {
    public:
-    custom_arg_formatter(fmt::format_context &ctx,
-                         fmt::format_specs *spec = nullptr)
-      : arg_formatter(ctx, spec) {}
+    custom_arg_formatter(fmt::format_context& ctx,
+                         fmt::format_parse_context* parse_ctx = nullptr,
+                         fmt::format_specs* spec = nullptr)
+      : arg_formatter(ctx, parse_ctx, spec) {}
 
     using arg_formatter::operator();
 
     auto operator()(int value) {
-      if (spec().type() == 'x')
+      if (specs() && specs()->type == 'x')
         return (*this)(static_cast<unsigned>(value)); // convert to unsigned and format
       return arg_formatter::operator()(value);
     }
@@ -315,6 +318,31 @@ custom argument formatter class::
 
 .. doxygenclass:: fmt::arg_formatter
    :members:
+
+.. _ranges-api:
+
+Ranges and Tuple Formatting
+===========================
+
+The library also supports convenient formatting of ranges and tuples::
+
+  #include <fmt/ranges.h>
+
+  std::tuple<char, int, float> t{'a', 1, 2.0f};
+  // Prints "('a', 1, 2.0)"
+  fmt::print("{}", t);
+
+
+NOTE: currently, the overload of ``fmt::join`` for iterables exists in the main
+``format.h`` header, but expect this to change in the future.
+
+Using ``fmt::join``, you can separate tuple elements with a custom separator::
+
+  #include <fmt/ranges.h>
+
+  std::tuple<int, char> t = {1, 'a'};
+  // Prints "1, a"
+  fmt::print("{}", fmt::join(t, ", "));
 
 .. _chrono-api:
 

@@ -103,7 +103,7 @@ template <typename T> struct mock_buffer : buffer<T> {
 TEST(BufferTest, Ctor) {
   {
     mock_buffer<int> buffer;
-    EXPECT_EQ(nullptr, &buffer[0]);
+    EXPECT_EQ(nullptr, buffer.data());
     EXPECT_EQ(static_cast<size_t>(0), buffer.size());
     EXPECT_EQ(static_cast<size_t>(0), buffer.capacity());
   }
@@ -612,6 +612,17 @@ struct explicitly_convertible_to_string_view {
 TEST(FormatterTest, FormatExplicitlyConvertibleToStringView) {
   EXPECT_EQ("foo", fmt::format("{}", explicitly_convertible_to_string_view()));
 }
+
+#ifdef FMT_USE_STRING_VIEW
+struct explicitly_convertible_to_std_string_view {
+  explicit operator std::string_view() const { return "foo"; }
+};
+
+TEST(FormatterTest, FormatExplicitlyConvertibleToStdStringView) {
+  EXPECT_EQ("foo",
+            fmt::format("{}", explicitly_convertible_to_std_string_view()));
+}
+#endif
 
 struct explicitly_convertible_to_wstring_view {
   explicit operator fmt::wstring_view() const { return L"foo"; }

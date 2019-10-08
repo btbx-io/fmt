@@ -1,5 +1,10 @@
-6.0.0 - TBD
------------
+6.0.0 - 2019-08-26
+------------------
+
+* Switched to the `MIT license
+  <https://github.com/fmtlib/fmt/blob/5a4b24613ba16cc689977c3b5bd8274a3ba1dd1f/LICENSE.rst>`_
+  with an optional exception that allows distributing binary code without
+  attribution.
 
 * Floating-point formatting is now locale-independent by default:
 
@@ -42,6 +47,10 @@
 
   .. image:: https://user-images.githubusercontent.com/576385/
              54883977-9fe8c000-4e28-11e9-8bde-272d122e7c52.jpg
+
+* Separated formatting and parsing contexts for consistency with
+  `C++20 std::format <http://eel.is/c++draft/format>`_, removing the
+  undocumented ``basic_format_context::parse_context()`` function.
 
 * Added `oss-fuzz <https://github.com/google/oss-fuzz>`_ support
   (`#1199 <https://github.com/fmtlib/fmt/pull/1199>`_).
@@ -166,9 +175,6 @@
   `#1099 <https://github.com/fmtlib/fmt/pull/1099>`_).
   Thanks `@BillyDonahue (Billy Donahue) <https://github.com/BillyDonahue>`_.
 
-* Separated formatting and parsing contexts, removing the undocumented
-  ``basic_format_context::parse_context()`` function.
-
 * Marked deprecated APIs with the ``[[deprecated]]`` attribute and removed
   internal uses of deprecated APIs
   (`#1022 <https://github.com/fmtlib/fmt/pull/1022>`_).
@@ -176,7 +182,8 @@
 
 * Modernized the codebase using more C++11 features and removing workarounds.
   Most importantly, ``buffer_context`` is now an alias template, so
-  use ``buffer_context<T>`` instead of ``buffer_context<T>::type`.
+  use ``buffer_context<T>`` instead of ``buffer_context<T>::type``.
+  These features require GCC 4.8 or later.
 
 * ``formatter`` specializations now always take precedence over implicit
   conversions to ``int`` and the undocumented ``convert_to_int`` trait
@@ -242,15 +249,21 @@
   `#1146 <https://github.com/fmtlib/fmt/issues/1146>`_,
   `#1180 <https://github.com/fmtlib/fmt/issues/1180>`_,
   `#1250 <https://github.com/fmtlib/fmt/pull/1250>`_,
-  `#1252 <https://github.com/fmtlib/fmt/pull/1252>`_).
+  `#1252 <https://github.com/fmtlib/fmt/pull/1252>`_,
+  `#1265 <https://github.com/fmtlib/fmt/pull/1265>`_).
   Thanks `@mikelui (Michael Lui) <https://github.com/mikelui>`_,
   `@foonathan (Jonathan Müller) <https://github.com/foonathan>`_,
   `@BillyDonahue (Billy Donahue) <https://github.com/BillyDonahue>`_,
   `@jwakely (Jonathan Wakely) <https://github.com/jwakely>`_,
-  `@kaisbe (Kais Ben Salah) <https://github.com/kaisbe>`_.
+  `@kaisbe (Kais Ben Salah) <https://github.com/kaisbe>`_,
+  `@sdebionne (Samuel Debionne) <https://github.com/sdebionne>`_.
 
 * Fixed ambiguous formatter specialization in ``fmt/ranges.h``
   (`#1123 <https://github.com/fmtlib/fmt/issues/1123>`_).
+
+* Fixed formatting of a non-empty ``std::filesystem::path`` which is an
+  infinitely deep range of its components
+  (`#1268 <https://github.com/fmtlib/fmt/issues/1268>`_).
 
 * Fixed handling of general output iterators when formatting characters
   (`#1056 <https://github.com/fmtlib/fmt/issues/1056>`_,
@@ -286,7 +299,7 @@
   `#1222 <https://github.com/fmtlib/fmt/issues/1222>`_).
   Thanks `@alabuzhev (Alex Alabuzhev) <https://github.com/alabuzhev>`_.
 
-* Fixed bugs discovered by fuzzing or during fuzzing integation
+* Fixed bugs discovered by fuzzing or during fuzzing integration
   (`#1124 <https://github.com/fmtlib/fmt/issues/1124>`_,
   `#1127 <https://github.com/fmtlib/fmt/issues/1127>`_,
   `#1132 <https://github.com/fmtlib/fmt/issues/1132>`_,
@@ -770,7 +783,7 @@
   ``color`` enum) is now deprecated.
   (`#762 <https://github.com/fmtlib/fmt/issues/762>`_
   `#767 <https://github.com/fmtlib/fmt/pull/767>`_).
-  thanks `@remotion (remo) <https://github.com/remotion>`_.
+  thanks `@Remotion (Remo) <https://github.com/Remotion>`_.
 
 * Added quotes to strings in ranges and tuples
   (`#766 <https://github.com/fmtlib/fmt/pull/766>`_).

@@ -11,6 +11,10 @@
    :alt: Ask questions at StackOverflow with the tag fmt
    :target: http://stackoverflow.com/questions/tagged/fmt
 
+.. image:: https://oss-fuzz-build-logs.storage.googleapis.com/badges/libfmt.svg
+   :alt: fmt is continuously fuzzed att oss-fuzz
+   :target: https://bugs.chromium.org/p/oss-fuzz/issues/list?colspec=ID%20Type%20Component%20Status%20Proj%20Reported%20Owner%20Summary&q=proj%3Dfmt&can=1
+
 **{fmt}** is an open-source formatting library for C++.
 It can be used as a safe and fast alternative to (s)printf and iostreams.
 
@@ -24,7 +28,7 @@ Features
 * Replacement-based `format API <https://fmt.dev/dev/api.html>`_ with
   positional arguments for localization.
 * `Format string syntax <https://fmt.dev/dev/syntax.html>`_ similar to the one
-  of `str.format <https://docs.python.org/2/library/stdtypes.html#str.format>`_
+  of `str.format <https://docs.python.org/3/library/stdtypes.html#str.format>`_
   in Python.
 * Safe `printf implementation
   <https://fmt.dev/latest/api.html#printf-formatting>`_ including
@@ -39,12 +43,12 @@ Features
   consists of just three header files, ``core.h``, ``format.h`` and
   ``format-inl.h``) and compiled code. See `Compile time and code bloat`_.
 * Reliability: the library has an extensive set of `unit tests
-  <https://github.com/fmtlib/fmt/tree/master/test>`_.
+  <https://github.com/fmtlib/fmt/tree/master/test>`_ and is continuously fuzzed.
 * Safety: the library is fully type safe, errors in format strings can be
   reported at compile time, automatic memory management prevents buffer overflow
   errors.
 * Ease of use: small self-contained code base, no external dependencies,
-  permissive BSD `license
+  permissive MIT `license
   <https://github.com/fmtlib/fmt/blob/master/LICENSE.rst>`_
 * `Portability <https://fmt.dev/latest/index.html#portability>`_ with
   consistent output across platforms and support for older compilers.
@@ -278,6 +282,8 @@ Projects using this library
 
 * `Ceph <https://ceph.com/>`_: A scalable distributed storage system
 
+* `ccache <https://ccache.dev/>`_: A compiler cache
+
 * `CUAUV <http://cuauv.org/>`_: Cornell University's autonomous underwater
   vehicle
 
@@ -343,7 +349,7 @@ Projects using this library
 * `TrinityCore <https://github.com/TrinityCore/TrinityCore>`_: Open-source
   MMORPG framework
 
-`More... <https://github.com/search?q=cppformat&type=Code>`_
+`More... <https://github.com/search?q=fmtlib&type=Code>`_
 
 If you are aware of other projects using this library, please let me know
 by `email <mailto:victor.zverovich@gmail.com>`_ or by submitting an
@@ -469,7 +475,7 @@ A: use ``std::tuple``:
 License
 -------
 
-{fmt} is distributed under the BSD `license
+{fmt} is distributed under the MIT `license
 <https://github.com/fmtlib/fmt/blob/master/LICENSE.rst>`_.
 
 The `Format String Syntax
@@ -502,7 +508,7 @@ Some ideas used in the implementation are borrowed from `Loki
 <http://clang.llvm.org/doxygen/classclang_1_1Diagnostic.html>`_ in
 `Clang <http://clang.llvm.org/>`_.
 Format string syntax and the documentation are based on Python's `str.format
-<http://docs.python.org/2/library/stdtypes.html#str.format>`_.
+<https://docs.python.org/3/library/stdtypes.html#str.format>`_.
 Thanks `Doug Turnbull <https://github.com/softwaredoug>`_ for his valuable
 comments and contribution to the design of the type-safe API and
 `Gregory Czajkowski <https://github.com/gcflymoto>`_ for implementing binary

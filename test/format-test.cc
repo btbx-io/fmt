@@ -35,6 +35,7 @@ using std::size_t;
 
 using fmt::basic_memory_buffer;
 using fmt::internal::basic_writer;
+using fmt::internal::max_value;
 using fmt::format;
 using fmt::format_error;
 using fmt::memory_buffer;
@@ -99,7 +100,7 @@ void std_format(long double value, std::wstring& result) {
 template <typename Char, typename T>
 ::testing::AssertionResult check_write(const T& value, const char* type) {
   fmt::basic_memory_buffer<Char> buffer;
-  using range = fmt::internal::buffer_range<Char>;
+  using range = fmt::buffer_range<Char>;
   basic_writer<range> writer(buffer);
   writer.write(value);
   std::basic_string<Char> actual = to_string(buffer);
@@ -162,7 +163,7 @@ TEST(UtilTest, Increment) {
 }
 
 TEST(UtilTest, ParseNonnegativeInt) {
-  if (std::numeric_limits<int>::max() !=
+  if (max_value<int>() !=
       static_cast<int>(static_cast<unsigned>(1) << 31)) {
     fmt::print("Skipping parse_nonnegative_int test\n");
     return;
@@ -477,7 +478,7 @@ TEST(UtilTest, FormatSystemError) {
   message = fmt::memory_buffer();
 
   // Check if std::allocator throws on allocating max size_t / 2 chars.
-  size_t max_size = std::numeric_limits<size_t>::max() / 2;
+  size_t max_size = max_value<size_t>() / 2;
   bool throws_on_alloc = false;
   try {
     std::allocator<char> alloc;
@@ -527,7 +528,7 @@ TEST(UtilTest, FormatWindowsError) {
   actual_message.resize(0);
   fmt::internal::format_windows_error(
       actual_message, ERROR_FILE_EXISTS,
-      fmt::string_view(0, std::numeric_limits<size_t>::max()));
+      fmt::string_view(0, max_value<size_t>()));
   EXPECT_EQ(fmt::format("error {}", ERROR_FILE_EXISTS),
             fmt::to_string(actual_message));
 }
@@ -593,31 +594,31 @@ TEST(WriterTest, WriteInt) {
   CHECK_WRITE(static_cast<short>(12));
   CHECK_WRITE(34u);
   CHECK_WRITE(std::numeric_limits<int>::min());
-  CHECK_WRITE(std::numeric_limits<int>::max());
-  CHECK_WRITE(std::numeric_limits<unsigned>::max());
+  CHECK_WRITE(max_value<int>());
+  CHECK_WRITE(max_value<unsigned>());
 }
 
 TEST(WriterTest, WriteLong) {
   CHECK_WRITE(56l);
   CHECK_WRITE(78ul);
   CHECK_WRITE(std::numeric_limits<long>::min());
-  CHECK_WRITE(std::numeric_limits<long>::max());
-  CHECK_WRITE(std::numeric_limits<unsigned long>::max());
+  CHECK_WRITE(max_value<long>());
+  CHECK_WRITE(max_value<unsigned long>());
 }
 
 TEST(WriterTest, WriteLongLong) {
   CHECK_WRITE(56ll);
   CHECK_WRITE(78ull);
   CHECK_WRITE(std::numeric_limits<long long>::min());
-  CHECK_WRITE(std::numeric_limits<long long>::max());
-  CHECK_WRITE(std::numeric_limits<unsigned long long>::max());
+  CHECK_WRITE(max_value<long long>());
+  CHECK_WRITE(max_value<unsigned long long>());
 }
 
 TEST(WriterTest, WriteDouble) {
   CHECK_WRITE(4.2);
   CHECK_WRITE(-4.2);
   auto min = std::numeric_limits<double>::min();
-  auto max = std::numeric_limits<double>::max();
+  auto max = max_value<double>();
   if (fmt::internal::use_grisu<double>()) {
     EXPECT_EQ("2.2250738585072014e-308", fmt::format("{}", min));
     EXPECT_EQ("1.7976931348623157e+308", fmt::format("{}", max));
@@ -637,7 +638,7 @@ TEST(WriterTest, WriteLongDouble) {
   else
     fmt::print("warning: long double formatting with std::swprintf is broken");
   auto min = std::numeric_limits<long double>::min();
-  auto max = std::numeric_limits<long double>::max();
+  auto max = max_value<long double>();
   if (fmt::internal::use_grisu<long double>()) {
     EXPECT_EQ("2.2250738585072014e-308", fmt::format("{}", min));
     EXPECT_EQ("1.7976931348623157e+308", fmt::format("{}", max));
@@ -695,12 +696,6 @@ TEST(FormatToTest, WideString) {
   std::vector<wchar_t> buf;
   fmt::format_to(std::back_inserter(buf), L"{}{}", 42, L'\0');
   EXPECT_STREQ(buf.data(), L"42");
-}
-
-TEST(FormatToTest, FormatToNonbackInsertIteratorWithSignAndNumericAlignment) {
-  char buffer[16] = {};
-  fmt::format_to(fmt::internal::make_checked(buffer, 16), "{: =+}", 42.0);
-  EXPECT_STREQ("+42.0", buffer);
 }
 
 TEST(FormatToTest, FormatToMemoryBuffer) {
@@ -856,6 +851,7 @@ TEST(FormatterTest, RightAlign) {
   EXPECT_EQ("  0xface", format("{0:>8}", reinterpret_cast<void*>(0xface)));
 }
 
+#if FMT_NUMERIC_ALIGN
 TEST(FormatterTest, NumericAlign) {
   EXPECT_EQ("  42", format("{0:=4}", 42));
   EXPECT_EQ("+ 42", format("{0:=+4}", 42));
@@ -881,6 +877,13 @@ TEST(FormatterTest, NumericAlign) {
                    format_error, "format specifier requires numeric argument");
   EXPECT_EQ(" 1.0", fmt::format("{:= }", 1.0));
 }
+
+TEST(FormatToTest, FormatToNonbackInsertIteratorWithSignAndNumericAlignment) {
+  char buffer[16] = {};
+  fmt::format_to(fmt::internal::make_checked(buffer, 16), "{: =+}", 42.0);
+  EXPECT_STREQ("+42.0", buffer);
+}
+#endif
 
 TEST(FormatterTest, CenterAlign) {
   EXPECT_EQ(" 42  ", format("{0:^5}", 42));
@@ -1001,6 +1004,7 @@ TEST(FormatterTest, HashFlag) {
   EXPECT_EQ("0x42", format("{0:#x}", 0x42));
   EXPECT_EQ("0X42", format("{0:#X}", 0x42));
   EXPECT_EQ("-0x42", format("{0:#x}", -0x42));
+  EXPECT_EQ("0", format("{0:#o}", 0));
   EXPECT_EQ("042", format("{0:#o}", 042));
   EXPECT_EQ("-042", format("{0:#o}", -042));
   EXPECT_EQ("42", format("{0:#}", 42u));
@@ -1330,8 +1334,16 @@ TEST(FormatterTest, FormatBin) {
   EXPECT_EQ("10010001101000101011001111000", format("{0:b}", 0x12345678));
   EXPECT_EQ("10010000101010111100110111101111", format("{0:b}", 0x90ABCDEF));
   EXPECT_EQ("11111111111111111111111111111111",
-            format("{0:b}", std::numeric_limits<uint32_t>::max()));
+            format("{0:b}", max_value<uint32_t>()));
 }
+
+#if FMT_USE_INT128
+constexpr auto int128_max = static_cast<__int128_t>(
+    (static_cast<__uint128_t>(1) << ((__SIZEOF_INT128__ * CHAR_BIT) - 1)) - 1);
+constexpr auto int128_min = -int128_max - 1;
+
+constexpr auto uint128_max = ~static_cast<__uint128_t>(0);
+#endif
 
 TEST(FormatterTest, FormatDec) {
   EXPECT_EQ("0", format("{0}", 0));
@@ -1341,6 +1353,23 @@ TEST(FormatterTest, FormatDec) {
   EXPECT_EQ("-42", format("{0}", -42));
   EXPECT_EQ("12345", format("{0}", 12345));
   EXPECT_EQ("67890", format("{0}", 67890));
+#if FMT_USE_INT128
+  EXPECT_EQ("0", format("{0}", static_cast<__int128_t>(0)));
+  EXPECT_EQ("0", format("{0}", static_cast<__uint128_t>(0)));
+  EXPECT_EQ("9223372036854775808",
+            format("{0}", static_cast<__int128_t>(INT64_MAX) + 1));
+  EXPECT_EQ("-9223372036854775809",
+            format("{0}", static_cast<__int128_t>(INT64_MIN) - 1));
+  EXPECT_EQ("18446744073709551616",
+            format("{0}", static_cast<__int128_t>(UINT64_MAX) + 1));
+  EXPECT_EQ("170141183460469231731687303715884105727",
+            format("{0}", int128_max));
+  EXPECT_EQ("-170141183460469231731687303715884105728",
+            format("{0}", int128_min));
+  EXPECT_EQ("340282366920938463463374607431768211455",
+            format("{0}", uint128_max));
+#endif
+
   char buffer[BUFFER_SIZE];
   safe_sprintf(buffer, "%d", INT_MIN);
   EXPECT_EQ(buffer, format("{0}", INT_MIN));
@@ -1365,6 +1394,19 @@ TEST(FormatterTest, FormatHex) {
   EXPECT_EQ("90abcdef", format("{0:x}", 0x90abcdef));
   EXPECT_EQ("12345678", format("{0:X}", 0x12345678));
   EXPECT_EQ("90ABCDEF", format("{0:X}", 0x90ABCDEF));
+#if FMT_USE_INT128
+  EXPECT_EQ("0", format("{0:x}", static_cast<__int128_t>(0)));
+  EXPECT_EQ("0", format("{0:x}", static_cast<__uint128_t>(0)));
+  EXPECT_EQ("8000000000000000",
+            format("{0:x}", static_cast<__int128_t>(INT64_MAX) + 1));
+  EXPECT_EQ("-8000000000000001",
+            format("{0:x}", static_cast<__int128_t>(INT64_MIN) - 1));
+  EXPECT_EQ("10000000000000000",
+            format("{0:x}", static_cast<__int128_t>(UINT64_MAX) + 1));
+  EXPECT_EQ("7fffffffffffffffffffffffffffffff", format("{0:x}", int128_max));
+  EXPECT_EQ("-80000000000000000000000000000000", format("{0:x}", int128_min));
+  EXPECT_EQ("ffffffffffffffffffffffffffffffff", format("{0:x}", uint128_max));
+#endif
 
   char buffer[BUFFER_SIZE];
   safe_sprintf(buffer, "-%x", 0 - static_cast<unsigned>(INT_MIN));
@@ -1387,6 +1429,23 @@ TEST(FormatterTest, FormatOct) {
   EXPECT_EQ("42", format("{0:o}", 042u));
   EXPECT_EQ("-42", format("{0:o}", -042));
   EXPECT_EQ("12345670", format("{0:o}", 012345670));
+#if FMT_USE_INT128
+  EXPECT_EQ("0", format("{0:o}", static_cast<__int128_t>(0)));
+  EXPECT_EQ("0", format("{0:o}", static_cast<__uint128_t>(0)));
+  EXPECT_EQ("1000000000000000000000",
+            format("{0:o}", static_cast<__int128_t>(INT64_MAX) + 1));
+  EXPECT_EQ("-1000000000000000000001",
+            format("{0:o}", static_cast<__int128_t>(INT64_MIN) - 1));
+  EXPECT_EQ("2000000000000000000000",
+            format("{0:o}", static_cast<__int128_t>(UINT64_MAX) + 1));
+  EXPECT_EQ("1777777777777777777777777777777777777777777",
+            format("{0:o}", int128_max));
+  EXPECT_EQ("-2000000000000000000000000000000000000000000",
+            format("{0:o}", int128_min));
+  EXPECT_EQ("3777777777777777777777777777777777777777777",
+            format("{0:o}", uint128_max));
+#endif
+
   char buffer[BUFFER_SIZE];
   safe_sprintf(buffer, "-%o", 0 - static_cast<unsigned>(INT_MIN));
   EXPECT_EQ(buffer, format("{0:o}", INT_MIN));
@@ -1407,7 +1466,7 @@ TEST(FormatterTest, FormatIntLocale) {
   EXPECT_EQ("1,234", format("{:n}", 1234));
   EXPECT_EQ("1,234,567", format("{:n}", 1234567));
   EXPECT_EQ("4,294,967,295",
-            format("{:n}", std::numeric_limits<uint32_t>::max()));
+            format("{:n}", max_value<uint32_t>()));
 }
 
 struct ConvertibleToLongLong {
@@ -1745,9 +1804,9 @@ TEST(FormatIntTest, FormatInt) {
   EXPECT_EQ("42", fmt::format_int(42ull).str());
   EXPECT_EQ("-42", fmt::format_int(-42ll).str());
   std::ostringstream os;
-  os << std::numeric_limits<int64_t>::max();
+  os << max_value<int64_t>();
   EXPECT_EQ(os.str(),
-            fmt::format_int(std::numeric_limits<int64_t>::max()).str());
+            fmt::format_int(max_value<int64_t>()).str());
 }
 
 TEST(FormatTest, Print) {
@@ -1894,6 +1953,11 @@ TEST(FormatTest, UdlTemplate) {
   EXPECT_EQ("foo", "foo"_format());
   EXPECT_EQ("        42", "{0:10}"_format(42));
 }
+
+TEST(FormatTest, UdlPassUserDefinedObjectAsLvalue) {
+  Date date(2015, 10, 21);
+  EXPECT_EQ("2015-10-21", "{}"_format(date));
+}
 #endif  // FMT_USE_USER_DEFINED_LITERALS
 
 enum TestEnum { A };
@@ -1906,17 +1970,23 @@ TEST(FormatTest, FormatterNotSpecialized) {
 }
 
 #if FMT_HAS_FEATURE(cxx_strong_enums)
-enum TestFixedEnum : short { B };
+enum big_enum : unsigned long long { big_enum_value = 5000000000ULL };
 
-TEST(FormatTest, FixedEnum) { EXPECT_EQ("0", fmt::format("{}", B)); }
+TEST(FormatTest, StrongEnum) {
+  EXPECT_EQ("5000000000", fmt::format("{}", big_enum_value));
+}
 #endif
 
-using buffer_range = fmt::internal::buffer_range<char>;
+using buffer_range = fmt::buffer_range<char>;
 
 class mock_arg_formatter
     : public fmt::internal::arg_formatter_base<buffer_range> {
  private:
+#if FMT_USE_INT128
+  MOCK_METHOD1(call, void(__int128_t value));
+#else
   MOCK_METHOD1(call, void(long long value));
+#endif
 
  public:
   typedef fmt::internal::arg_formatter_base<buffer_range> base;
@@ -1929,14 +1999,14 @@ class mock_arg_formatter
   }
 
   template <typename T>
-  typename std::enable_if<std::is_integral<T>::value, iterator>::type
+  typename std::enable_if<fmt::internal::is_integral<T>::value, iterator>::type
   operator()(T value) {
     call(value);
     return base::operator()(value);
   }
 
   template <typename T>
-  typename std::enable_if<!std::is_integral<T>::value, iterator>::type
+  typename std::enable_if<!fmt::internal::is_integral<T>::value, iterator>::type
   operator()(T value) {
     return base::operator()(value);
   }
@@ -1988,8 +2058,10 @@ TEST(FormatTest, DynamicFormatter) {
                    "cannot switch from manual to automatic argument indexing");
   EXPECT_THROW_MSG(format("{:{0}}", num), format_error,
                    "cannot switch from automatic to manual argument indexing");
+#if FMT_NUMERIC_ALIGN
   EXPECT_THROW_MSG(format("{:=}", str), format_error,
                    "format specifier requires numeric argument");
+#endif
   EXPECT_THROW_MSG(format("{:+}", str), format_error,
                    "format specifier requires numeric argument");
   EXPECT_THROW_MSG(format("{:-}", str), format_error,
@@ -2372,13 +2444,15 @@ TEST(FormatTest, FormatStringErrors) {
   EXPECT_ERROR("{0:s", "unknown format specifier", Date);
 #  if FMT_MSC_VER >= 1916
   // This causes an internal compiler error in MSVC2017.
-  EXPECT_ERROR("{0:=5", "unknown format specifier", int);
   EXPECT_ERROR("{:{<}", "invalid fill character '{'", int);
   EXPECT_ERROR("{:10000000000}", "number is too big", int);
   EXPECT_ERROR("{:.10000000000}", "number is too big", int);
   EXPECT_ERROR_NOARGS("{:x}", "argument index out of range");
+#if FMT_NUMERIC_ALIGN
+  EXPECT_ERROR("{0:=5", "unknown format specifier", int);
   EXPECT_ERROR("{:=}", "format specifier requires numeric argument",
                const char*);
+#endif
   EXPECT_ERROR("{:+}", "format specifier requires numeric argument",
                const char*);
   EXPECT_ERROR("{:-}", "format specifier requires numeric argument",
