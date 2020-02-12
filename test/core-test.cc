@@ -127,7 +127,12 @@ TEST(BufferTest, Ctor) {
 struct dying_buffer : test_buffer<int> {
   MOCK_METHOD0(die, void());
   ~dying_buffer() { die(); }
+
+ private:
+  virtual void avoid_weak_vtable();
 };
+
+void dying_buffer::avoid_weak_vtable() {}
 
 TEST(BufferTest, VirtualDtor) {
   typedef StrictMock<dying_buffer> stict_mock_buffer;
@@ -284,8 +289,6 @@ VISIT_TYPE(unsigned long, unsigned);
 VISIT_TYPE(long, long long);
 VISIT_TYPE(unsigned long, unsigned long long);
 #endif
-
-VISIT_TYPE(float, double);
 
 #define CHECK_ARG_(Char, expected, value)                                     \
   {                                                                           \
@@ -450,11 +453,11 @@ template <> struct formatter<enabled_formatter> {
 FMT_END_NAMESPACE
 
 TEST(CoreTest, HasFormatter) {
-  using fmt::internal::has_formatter;
+  using fmt::has_formatter;
   using context = fmt::format_context;
-  EXPECT_TRUE((has_formatter<enabled_formatter, context>::value));
-  EXPECT_FALSE((has_formatter<disabled_formatter, context>::value));
-  EXPECT_FALSE((has_formatter<disabled_formatter_convertible, context>::value));
+  static_assert(has_formatter<enabled_formatter, context>::value, "");
+  static_assert(!has_formatter<disabled_formatter, context>::value, "");
+  static_assert(!has_formatter<disabled_formatter_convertible, context>::value, "");
 }
 
 struct convertible_to_int {
@@ -632,17 +635,15 @@ TEST(FormatterTest, FormatExplicitlyConvertibleToWStringView) {
   EXPECT_EQ(L"foo",
             fmt::format(L"{}", explicitly_convertible_to_wstring_view()));
 }
+#endif
 
-struct explicitly_convertible_to_string_like {
-  template <typename String,
-            typename = typename std::enable_if<std::is_constructible<
-                String, const char*, std::size_t>::value>::type>
-  explicit operator String() const {
-    return String("foo", 3u);
-  }
+struct disabled_rvalue_conversion {
+  operator const char*() const& { return "foo"; }
+  operator const char*()& { return "foo"; }
+  operator const char*() const&& = delete;
+  operator const char*()&& = delete;
 };
 
-TEST(FormatterTest, FormatExplicitlyConvertibleToStringLike) {
-  EXPECT_EQ("foo", fmt::format("{}", explicitly_convertible_to_string_like()));
+TEST(FormatterTest, DisabledRValueConversion) {
+  EXPECT_EQ("foo", fmt::format("{}", disabled_rvalue_conversion()));
 }
-#endif

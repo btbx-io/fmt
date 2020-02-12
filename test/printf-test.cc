@@ -5,12 +5,13 @@
 //
 // For the license information refer to format.h.
 
+#include "fmt/printf.h"
+
 #include <cctype>
 #include <climits>
 #include <cstring>
 
 #include "fmt/core.h"
-#include "fmt/printf.h"
 #include "gtest-extra.h"
 #include "util.h"
 
@@ -112,7 +113,7 @@ TEST(PrintfTest, SwitchArgIndexing) {
 
 TEST(PrintfTest, InvalidArgIndex) {
   EXPECT_THROW_MSG(test_sprintf("%0$d", 42), format_error,
-                   "argument index 0 is out of range");
+                   "argument index out of range");
   EXPECT_THROW_MSG(test_sprintf("%2$d", 42), format_error,
                    "argument index out of range");
   EXPECT_THROW_MSG(test_sprintf(format("%{}$d", INT_MAX), 42), format_error,
@@ -300,15 +301,15 @@ void TestLength(const char* length_spec, U value) {
   using fmt::internal::const_check;
   if (const_check(max <= static_cast<unsigned>(max_value<int>()))) {
     signed_value = static_cast<int>(value);
-    unsigned_value = static_cast<unsigned>(value);
+    unsigned_value = static_cast<unsigned long long>(value);
   } else if (const_check(max <= max_value<unsigned>())) {
     signed_value = static_cast<unsigned>(value);
-    unsigned_value = static_cast<unsigned>(value);
+    unsigned_value = static_cast<unsigned long long>(value);
   }
   if (sizeof(U) <= sizeof(int) && sizeof(int) < sizeof(T)) {
     signed_value = static_cast<long long>(value);
-    unsigned_value =
-        static_cast<typename std::make_unsigned<unsigned>::type>(value);
+    unsigned_value = static_cast<unsigned long long>(
+        static_cast<typename std::make_unsigned<unsigned>::type>(value));
   } else {
     signed_value = static_cast<typename make_signed<T>::type>(value);
     unsigned_value = static_cast<typename std::make_unsigned<T>::type>(value);
@@ -410,6 +411,7 @@ TEST(PrintfTest, Float) {
   EXPECT_PRINTF("392.65", "%G", 392.65);
   EXPECT_PRINTF("392", "%g", 392.0);
   EXPECT_PRINTF("392", "%G", 392.0);
+  EXPECT_PRINTF("4.56e-07", "%g", 0.000000456);
   safe_sprintf(buffer, "%a", -392.65);
   EXPECT_EQ(buffer, format("{:a}", -392.65));
   safe_sprintf(buffer, "%A", -392.65);
@@ -476,7 +478,7 @@ enum E { A = 42 };
 
 TEST(PrintfTest, Enum) { EXPECT_PRINTF("42", "%d", A); }
 
-#if FMT_USE_FILE_DESCRIPTORS
+#if FMT_USE_FCNTL
 TEST(PrintfTest, Examples) {
   const char* weekday = "Thursday";
   const char* month = "August";
@@ -588,8 +590,7 @@ class custom_printf_arg_formatter : public formatter_t {
       if (round(value * pow(10, specs()->precision)) == 0.0) value = 0;
   return formatter_t::operator()(value);
 }
-}
-;
+};
 
 typedef fmt::basic_format_args<context_t> format_args_t;
 
